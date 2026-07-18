@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Design Example</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    
+
+    .content {
+      font-size: 18px;
+      border: 1px solid black;
+      padding: 10px;
+      max-width: 800px;
+    }
+
+    @media screen and (max-width: 600px) {
+      .content {
+        font-size: 16px;
+        padding: 8px;
+      }
+    }
+
+    @media screen and (min-width: 1000px) {
+      .content {
+        font-size: 20px;
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Responsive Text Block</h1>
+
+  <div class="content">
+    <p>This paragraph adjusts its font size and padding based on screen width using min-width and max-width properties.</p>
+  </div>
+
+</body>
+</html>

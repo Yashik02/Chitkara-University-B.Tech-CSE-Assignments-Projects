@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forms</title>
+</head>
+<body>
+    <h1>Form elements</h1>
+    <form action="/action">
+        <h2>input tag</h2>
+        <label for="username">Username : </label>
+        <input type="text" id="username" name="username" placeholder="enter Username">
+        <br>
+        <label for="Password">Password :</label>
+        <input type="password" id="Password" name="password" placeholder="enter password">
+        <br>
+        <label for="phone_number">Phone Number :</label>
+        <input type="number" id="phone_number" name="phone number" placeholder="enter phone number">
+        <br>
+        <label for="date_and_time">Date and Time :</label>
+        <input type="datetime-local" id="date_and_time">
+        <br>
+        <label for="color_picker">Color picker :</label>
+        <input type="color" id="color_picker">
+
+        <hr>
+
+        <!-- button default behavior in a form tag is submitting the form data -->
+        <button>Submit default</button>
+        <button type="submit">type1 submit</button>
+        <button type="button">type2 button</button>
+        <button type="reset">type3 reset</button>
+        <input type="button" value="type4 using input tag">
+        <input type="submit"> <!-- default submit will appear -->
+
+    </form>
+
+    <hr>
+
+    <h2>Youtube search</h2>
+    <form action="https://www.youtube.com/results?">
+        <input type="text" placeholder="search on youtube" name="search_query">
+        <button>Search</button>
+    </form>
+
+    <hr>
+
+    <h2>Google search</h2>
+    <form action="https://www.google.com/search?">
+        <input type="text" placeholder="search on google" name="q">
+        <button>Search</button>
+    </form>
+
+    <hr>
+
+    <h2>Radio buttons</h2>
+    <form action="/action">
+        <input type="radio" name="fruit" value="apple" id="apple">
+        <label for="apple">apple</label>
+        <br>
+        <input type="radio" name="fruit" value="banana" id="banana">
+        <label for="banana">banana</label>
+        <br>
+        <input type="radio" name="fruit" value="mango" id="mango">
+        <label for="mango">mango</label>
+        <br>
+        <button>Submit</button>
+    </form>
+
+    <hr>
+
+    <h2>Checkbox buttons</h2>
+    <form action="/action">
+        <input type="checkbox" name="condition1" value="agree" id="condition1" checked required>
+        <label for="condition1">i agree to terms and conditions</label>
+        <br>
+        <input type="checkbox" name="condition2" value="agree" id="condition2">
+        <label for="condition2">i want promotional emails</label>
+        <br>
+        <input type="checkbox" name="condition3" value="agree" id="condition3">
+        <label for="condition3">i agree to share my personal data</label>
+        <br>
+        <button>Submit</button>
+    </form>
+
+    <hr>
+
+    <h2>Dropdown buttons</h2>
+    <form action="/action">
+        <label for="Profession">Please select your Profession : </label>
+        <select name="Profession" id="Profession">
+            <option value="Student">Student</option>
+            <option value="Developer">Developer</option>
+            <option value="NA" selected>Prefer not to say</option>
+            <option value="Others">others</option>
+        </select>
+        <br>
+        <button>Submit</button>
+    </form>
+
+    <hr>
+
+    <h2>Range selector</h2>
+    <form action="/action">
+        <input type="range" name="vol" min="0" max="100" id="vol" step="5" value="15">
+        <label for="vol">Volume</label>
+        <br>
+        <button>Submit</button>
+    </form>
+
+    <hr>
+
+    <h2>Text Area</h2>
+    <form action="/action.php">
+        <label for="feedback">Please provide your valuable feedback : </label>
+        <br>
+        <textarea id="feedback" placeholder="write feedback here" name="feedback" rows="4" cols="30"></textarea>
+        <br>
+        <button>Submit</button>
+    </form>
+
+    <hr>
+
+    <h2>Registeration form</h2>
+    <form action="/register">
+        <input type="text" placeholder="First Name" name="fname">
+        <input type="text" placeholder="Last Name" name="lname">
+        <br>
+        <label for="gender">Please select gender</label>
+        <select name="gender" id="gender">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="NA">Prefer not to say</option>
+            <option value="Others">others</option>
+        </select>
+        <br>
+        <label for="T&C">
+            Do you agree to all terms of service?
+            <input type="checkbox" placeholder="yes i agree" id="T&C" name="T&C">
+            Yes, I agree
+        </label>
+        <br>
+        <button>Register</button>
+    </form>
+
+    <hr>
+
+    <h1>Practice questions</h1>
+    <table border="black">
+        <caption>Student Information</caption>
+        <tr>
+            <th rowspan="6">Info</th>
+            <th rowspan="2">Name</th>
+            <th colspan="2">Address</th>
+        </tr>
+        <tr>
+            <th>City</th>
+            <th>House</th>
+        </tr>
+        <tr>
+            <td>A</td>
+            <td>Delhi</td>
+            <td>1</td>
+        </tr>
+        <tr>
+            <td>B</td>
+            <td>Mumbai</td>
+            <td>2</td>
+        </tr>
+        <tr>
+            <td>C</td>
+            <td>Kolkata</td>
+            <td>3</td>
+        </tr>
+        <tr>
+            <td>D</td>
+            <td>Pune</td>
+            <td>4</td>
+        </tr>
+    </table>
+
+    <hr>
+
+    <form action="/action">
+        <fieldset>
+            <legend>form</legend>
+            <label for="username1">Name: </label>
+            <input type="text" id="username1" name="username1">
+            <br>
+            <span>Sex: </span>
+            <input type="radio" name="sex" id="male" value="male">
+            <label for="male">Male</label>
+            <input type="radio" name="sex" id="female" value="female">
+            <label for="female">female</label>
+            <br>
+            <label for="message">Message: </label>
+            <br>
+            <textarea name="message" id="message" rows="4" cols="40"></textarea>
+            <br>
+            <input type="checkbox" id="subscribe">
+            <label for="subscribe">Subscribe?</label>
+            <br>
+            <button>Submit</button>
+        </fieldset>
+    </form>
+
+    <hr>
+
+    <h2>Feedback form</h2>
+    <form action="/action">
+        <label for="username2">Name: </label>
+        <input type="text" id="username2" placeholder="Write your Name">
+        <br>
+        <label for="email">Email: </label>
+        <input type="email" id="email" placeholder="Write your email">
+        <br>
+        <label for="message1">Message: </label>
+        <br>
+        <textarea name="message" id="message1" rows="4" cols="40"></textarea>
+        <br>
+        <p>Rate us out of 5 stars:</p>
+        <input type="radio" id="1star" name="rating" value="1">
+        <label for="1star">1</label>
+        <br>
+        <input type="radio" id="2star" name="rating" value="2">
+        <label for="2star">2</label>
+        <br>
+        <input type="radio" id="3star" name="rating" value="3">
+        <label for="3star">3</label>
+        <br>
+        <input type="radio" id="4star" name="rating" value="4">
+        <label for="4star">4</label>
+        <br>
+        <input type="radio" id="5star" name="rating" value="5">
+        <label for="5star">5</label>
+        <br>
+        <button type="submit">Send your message!</button>
+    </form>
+
+
+</body>
+</html>

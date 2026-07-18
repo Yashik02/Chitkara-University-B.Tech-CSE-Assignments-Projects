@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple CSS Animation</title>
+  <style>
+    .fade-box {
+      width: 200px;
+      height: 100px;
+      border: 1px solid black;
+      opacity: 0;
+      animation-name: fadeIn;
+      animation-duration: 2s;
+      animation-fill-mode: forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .hover-button {
+      padding: 10px 20px;
+      border: 1px solid black;
+      background-color: white;
+      transition: transform 0.3s;
+    }
+
+    .hover-button:hover {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>CSS Animation Demo</h1>
+
+  <div class="fade-box">
+    <p>This box fades in when the page loads.</p>
+  </div>
+
+  <br>
+
+  <button class="hover-button">Hover Me</button>
+</body>
+</html>

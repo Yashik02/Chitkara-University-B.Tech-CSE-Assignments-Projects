@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CSS Specificity Demo</title>
+  <link rel="stylesheet" href="style_experiment9.css">
+  <style>
+    p {
+      color: green;
+    }
+    .highlight {
+      color: blue;
+      font-weight: bold;
+    }
+    #main-title {
+      color: purple;
+      text-decoration: underline;
+    }
+    
+  </style>
+</head>
+<body>
+  <h1 id="main-title" style="color: red;">Welcome to My Styled Blog</h1>
+
+  <p>This paragraph uses element selector styling (green).</p>
+
+  <p class="highlight">This paragraph uses class selector styling (blue and bold).</p>
+
+  <p id="unique-para" class="highlight" style="color: orange;">
+    This paragraph combines inline, class, and element styles. Inline wins (orange).
+  </p>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pseudo-elements Demo</title>
+  <style>
+    .note::before {
+      content: "→ ";
+    }
+
+    .note::after {
+      content: " ✔";
+    }
+
+    h2::before {
+      content: "[ ";
+    }
+
+    h2::after {
+      content: " ]";
+    }
+  </style>
+</head>
+<body>
+  <h1>Pseudo-elements Example</h1>
+
+  <h2>Important Section</h2>
+  <p class="note">This paragraph uses ::before and ::after to add symbols.</p>
+</body>
+</html>
