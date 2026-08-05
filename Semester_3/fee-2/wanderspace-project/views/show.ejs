@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WanderSpace: <%= listing.title %></title>
+</head>
+<body>
+
+    <ul>
+        <li>
+            <img src="<%= listing.image %>" alt="<%= listing.title %>">
+        </li>
+
+        <li>
+            <%= listing.title %>
+        </li>
+
+        <li>
+            <span>
+                <%= listing.price.toLocaleString('en-IN', {
+                    style: 'currency',
+                    currency: 'INR'
+                }); %>
+            </span>
+        </li>
+
+        <li>
+            <%= listing.description %>
+        </li>
+
+        <li>
+            <%= listing.location %>
+        </li>
+        
+        <li>
+            <%= listing.country %>
+        </li>
+    </ul>
+
+    <a href="<%= listing._id %>/edit">Edit your Listing</a>
+    <form action="<%= listing._id %>?_method=DELETE" method="post">
+        <button>DELETE</button>
+    </form>
+</body>
+</html>
