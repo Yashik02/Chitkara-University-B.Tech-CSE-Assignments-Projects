@@ -33,7 +33,30 @@ public class Practice {
         return ans;
     }
 
+    public static int[] nextSmallestElement(int[] arr) {
+        int n = arr.length;
+        Deque<Integer> stack = new ArrayDeque<Integer>();
+        int[] nse = new int[n];
+        for(int i = n-1; i >= 0; i--) {
+            while(!stack.isEmpty() && arr[stack.peek()] >= arr[i]) {
+                stack.pop();
+            }
+            nse[i] = (stack.isEmpty())? n: stack.peek();
+            stack.push(i);
+        }
+
+        return nse;
+    }
+
     public static void main(String[] args) {
+
+        int[] arr = {1,3,2,4};
+        int[] nse = nextSmallestElement(arr);
+
+        for(int i = 0; i < nse.length; i++) {
+            System.out.print(nse[i]);
+        }
+
 
         int[][] mat = {{1,2,3,4}, {5,6,7,8}, {9,10,11,12}};
         System.out.println(borderElements(mat));
