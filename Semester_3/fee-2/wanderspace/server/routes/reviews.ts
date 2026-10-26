@@ -3,15 +3,16 @@ import { randomUUID } from "node:crypto";
 import { queryOne, run } from "../db";
 
 const router = Router({ mergeParams: true });
+const requireAuth = (req: Request, res: Response, next: Function) => req.isAuthenticated() ? next() : res.status(401).json({ error: "Authentication required." });
 
 /**
  * POST /api/listings/:id/reviews
  * Creates a review for a specific listing and saves to SQL database
  */
-router.post("/listings/:id/reviews", async (req: Request, res: Response) => {
+router.post("/listings/:id/reviews", requireAuth, async (req: Request, res: Response) => {
     try {
         const listingId = req.params.id;
-        const { author, rating, comment } = req.body;
+        const { rating, comment } = req.body;
 
         if (!rating || !comment || comment.trim() === "") {
             return res
@@ -34,19 +35,16 @@ router.post("/listings/:id/reviews", async (req: Request, res: Response) => {
             return res.status(404).json({ error: "Listing does not exist." });
         }
 
-        const finalAuthor =
-            author && author.trim() !== "" ? author.trim() : "Anonymous Guest";
-
         const reviewId = randomUUID();
         const insertSql = `
-      INSERT INTO reviews (id, listing_id, author, rating, comment)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO reviews (id, listing_id, author, user_id, rating, comment)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
 
         await run(insertSql, [
             reviewId,
             listingId,
-            finalAuthor,
+            req.user!.username, req.user!.id,
             numericRating,
             comment.trim(),
         ]);
@@ -68,10 +66,10 @@ router.post("/listings/:id/reviews", async (req: Request, res: Response) => {
  * DELETE /api/reviews/:id
  * Deletes a single review by ID
  */
-router.delete("/reviews/:id", async (req: Request, res: Response) => {
+router.delete("/reviews/:id", requireAuth, async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
-        const result = await run("DELETE FROM reviews WHERE id = ?", [id]);
+        const result = await run("DELETE FROM reviews WHERE id = ? AND user_id = ?", [id, req.user!.id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Review not found." });

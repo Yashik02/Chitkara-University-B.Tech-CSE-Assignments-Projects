@@ -5,6 +5,9 @@ import { createServer as createViteServer } from "vite";
 import { initDatabase, pool, seedDatabase } from "./server/db";
 import listingsRouter from "./server/routes/listings";
 import reviewsRouter from "./server/routes/reviews";
+import authRouter from "./server/routes/auth";
+import session from "express-session";
+import passport from "./server/auth";
 
 const PORT = 3000;
 
@@ -14,6 +17,23 @@ async function startServer() {
     // Parse incoming JSON and URL-encoded payloads
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
+    app.use(
+        session({
+            secret:
+                process.env.SESSION_SECRET ||
+                "wanderspace-development-secret",
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                httpOnly: true,
+                sameSite: "lax",
+                secure: process.env.NODE_ENV === "production",
+                maxAge: 1000 * 60 * 60 * 24 * 7,
+            },
+        }),
+    );
+    app.use(passport.initialize());
+    app.use(passport.session());
 
     // Initialize the MySQL database
     try {
@@ -36,6 +56,7 @@ async function startServer() {
     // API Routes
     app.use("/api/listings", listingsRouter);
     app.use("/api", reviewsRouter);
+    app.use("/api/auth", authRouter);
 
     // Endpoint to restore the sample database
     app.post("/api/seed/reset", async (req, res) => {

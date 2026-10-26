@@ -1,32 +1,77 @@
-/**
+﻿/**
  * Navbar Component
  * ------------------------------------------------------------
- * Functional component displaying WanderSpace branding, search bar,
- * wishlist counter, and "Host a Stay" action button.
+ * Contains site navigation, global search, and compact account controls.
+ * The component intentionally keeps only UI-level state local.
  */
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Compass, Search, Heart, PlusCircle, RotateCcw } from "lucide-react";
-import { useWishlist } from "../hooks/useWishlist";
+import {
+    ChevronDown,
+    Compass,
+    Heart,
+    Moon,
+    PlusCircle,
+    Search,
+    Sun,
+    UserCircle,
+} from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { setSearchQuery } from "../features/listings/listingsSlice";
+import { useAuth } from "../hooks/useAuth";
+import { useCurrency } from "../hooks/useCurrency";
+import { useLanguage } from "../hooks/useLanguage";
+import { useTheme } from "../hooks/useTheme";
+import { Language } from "../hooks/useLanguage";
+import { Currency } from "../hooks/useCurrency";
 
 interface NavbarProps {
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
     onResetData?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-    searchQuery,
-    setSearchQuery,
-    onResetData,
-}) => {
-    const { wishlistCount } = useWishlist();
+export const Navbar: React.FC<NavbarProps> = ({ onResetData }) => {
+    const dispatch = useAppDispatch();
     const navigate = useNavigate();
 
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchQuery(e.target.value);
-        // If not already on home, navigate home to show search results
+    const searchQuery = useAppSelector((state) => state.listings.searchQuery);
+    const wishlistCount = useAppSelector((state) => state.wishlist.ids.length);
+    const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
+    const { language, setLanguage, t } = useLanguage();
+    const { currency, setCurrency } = useCurrency();
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const closeMenu = (event: MouseEvent) => {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node)
+            ) {
+                setIsMenuOpen(false);
+            }
+        };
+
+        const closeMenuOnEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setIsMenuOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", closeMenu);
+        document.addEventListener("keydown", closeMenuOnEscape);
+
+        return () => {
+            document.removeEventListener("mousedown", closeMenu);
+            document.removeEventListener("keydown", closeMenuOnEscape);
+        };
+    }, []);
+
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        dispatch(setSearchQuery(event.target.value));
+
         if (window.location.pathname !== "/") {
             navigate("/");
         }
@@ -35,67 +80,203 @@ export const Navbar: React.FC<NavbarProps> = ({
     return (
         <header className="navbar">
             <div className="navbar-inner">
-                {/* Brand Logo */}
                 <Link to="/" className="brand-logo" title="WanderSpace Home">
                     <Compass className="brand-icon" />
                     <span>WanderSpace</span>
                 </Link>
 
-                {/* Global Search Bar (searches title, location, or country) */}
                 <div className="navbar-search">
                     <Search className="search-icon" />
                     <input
                         type="text"
                         className="search-input"
-                        placeholder="Search stays, cities, or countries..."
+                        placeholder={t("searchPlaceholder")}
                         value={searchQuery}
                         onChange={handleSearchChange}
                     />
                 </div>
 
-                {/* Navigation Actions */}
-                <div className="navbar-actions">
-                    {/* Wishlist Link with dynamic badge */}
-                    <Link
-                        to="/wishlist"
-                        className="btn btn-outline"
-                        title="View Saved Wishlist"
+                <div className="navbar-account-controls">
+                    <button
+                        type="button"
+                        className="theme-toggle-button"
+                        title={
+                            theme === "dark"
+                                ? t("useLightMode")
+                                : t("useDarkMode")
+                        }
+                        aria-label={
+                            theme === "dark"
+                                ? t("useLightMode")
+                                : t("useDarkMode")
+                        }
+                        onClick={toggleTheme}
                     >
-                        <Heart
-                            size={18}
-                            className={
-                                wishlistCount > 0
-                                    ? "text-red-500 fill-red-500"
-                                    : ""
-                            }
-                        />
-                        <span>Wishlist</span>
-                        {wishlistCount > 0 && (
-                            <span className="badge-count">{wishlistCount}</span>
-                        )}
-                    </Link>
+                        {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+                    </button>
 
-                    {/* Host a Stay (+ New Listing) */}
-                    <Link
-                        to="/listings/new"
-                        className="btn btn-brand"
-                        title="List your property"
-                    >
-                        <PlusCircle size={18} />
-                        <span>Host a Stay</span>
-                    </Link>
-
-                    {/* Reset sample data */}
-                    {onResetData && (
+                    <div className="account-menu" ref={menuRef}>
                         <button
-                            onClick={onResetData}
-                            className="btn btn-outline"
-                            title="Reset sample database"
+                            type="button"
+                            className="account-menu-trigger"
+                            title="Open account menu"
+                            aria-label="Open account menu"
+                            aria-expanded={isMenuOpen}
+                            onClick={() => setIsMenuOpen((open) => !open)}
                         >
-                            <RotateCcw size={16} />
-                            <span style={{ fontSize: "0.8rem" }}>Reset DB</span>
+                            <UserCircle size={24} />
+                            <ChevronDown
+                                size={15}
+                                className={isMenuOpen ? "rotate-180" : ""}
+                            />
                         </button>
-                    )}
+
+                        {isMenuOpen && (
+                            <div className="account-menu-dropdown" role="menu">
+                                {user ? (
+                                    <>
+                                        <div
+                                            className="account-menu-item"
+                                            style={{ fontWeight: 700 }}
+                                        >
+                                            Hi, {user.username}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="account-menu-item"
+                                            onClick={() => {
+                                                setIsMenuOpen(false);
+                                                logout();
+                                            }}
+                                        >
+                                            {t("logout")}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Link
+                                            to="/auth?mode=login"
+                                            className="account-menu-item"
+                                            onClick={() => setIsMenuOpen(false)}
+                                        >
+                                            {t("login")}
+                                        </Link>
+                                        <Link
+                                            to="/auth?mode=register"
+                                            className="account-menu-item"
+                                            onClick={() => setIsMenuOpen(false)}
+                                        >
+                                            {t("register")}
+                                        </Link>
+                                    </>
+                                )}
+
+                                <Link
+                                    to="/wishlist"
+                                    className="account-menu-item"
+                                    role="menuitem"
+                                    onClick={() => setIsMenuOpen(false)}
+                                >
+                                    <Heart
+                                        size={18}
+                                        className={
+                                            wishlistCount > 0
+                                                ? "text-red-500 fill-red-500"
+                                                : ""
+                                        }
+                                    />
+                                    <span>{t("wishlist")}</span>
+                                    {wishlistCount > 0 && (
+                                        <span className="badge-count">
+                                            {wishlistCount}
+                                        </span>
+                                    )}
+                                </Link>
+
+                                {user && (
+                                    <Link
+                                        to="/listings/new"
+                                        className="account-menu-item"
+                                        role="menuitem"
+                                        onClick={() => setIsMenuOpen(false)}
+                                    >
+                                        <PlusCircle size={18} />
+                                        <span>{t("hostStay")}</span>
+                                    </Link>
+                                )}
+
+                                <div className="account-menu-divider" />
+
+                                <button
+                                    type="button"
+                                    className="account-menu-item"
+                                    onClick={toggleTheme}
+                                >
+                                    {theme === "dark" ? (
+                                        <Sun size={18} />
+                                    ) : (
+                                        <Moon size={18} />
+                                    )}
+                                    <span>
+                                        {theme === "dark"
+                                            ? t("useLightMode")
+                                            : t("useDarkMode")}
+                                    </span>
+                                </button>
+
+                                <label className="account-menu-setting">
+                                    <span>{t("language")}</span>
+                                    <select
+                                        value={language}
+                                        onChange={(event) =>
+                                            setLanguage(
+                                                event.target.value as Language,
+                                            )
+                                        }
+                                        aria-label="Select language"
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="hi">हिन्दी</option>
+                                        <option value="es">Español</option>
+                                        <option value="pa">ਪੰਜਾਬੀ</option>
+                                        <option value="fr">Français</option>
+                                        <option value="zh">中文</option>
+                                    </select>
+                                </label>
+
+                                <label className="account-menu-setting">
+                                    <span>{t("currency")}</span>
+                                    <select
+                                        value={currency}
+                                        onChange={(event) =>
+                                            setCurrency(
+                                                event.target.value as Currency,
+                                            )
+                                        }
+                                        aria-label="Select currency"
+                                    >
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="INR">INR (₹)</option>
+                                    </select>
+                                </label>
+
+                                {onResetData && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMenuOpen(false);
+                                            onResetData();
+                                        }}
+                                        className="account-menu-item"
+                                        role="menuitem"
+                                    >
+                                        <span>{t("resetDatabase")}</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>

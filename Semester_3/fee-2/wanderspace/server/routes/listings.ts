@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { query, queryOne, run } from "../db";
 
 const router = Router();
+const requireAuth = (req: Request, res: Response, next: Function) => req.isAuthenticated() ? next() : res.status(401).json({ error: "Authentication required." });
 
 /**
  * GET /api/listings
@@ -25,10 +26,12 @@ router.get("/", async (req: Request, res: Response) => {
         l.location,
         l.country,
         l.category,
+        u.username AS host_username,
         l.created_at,
         ROUND(AVG(r.rating), 1) AS avg_rating,
         COUNT(r.id) AS review_count
       FROM listings l
+      LEFT JOIN users u ON u.id = l.user_id
       LEFT JOIN reviews r ON l.id = r.listing_id
       WHERE 1=1
     `;
@@ -61,7 +64,9 @@ router.get("/", async (req: Request, res: Response) => {
         } else if (sort === "price_desc") {
             sql += ` ORDER BY l.price DESC`;
         } else if (sort === "rating") {
-            sql += ` ORDER BY avg_rating DESC NULLS LAST, l.id DESC`;
+            // MySQL does not support PostgreSQL's NULLS LAST syntax.
+            // Sort unrated stays after rated stays explicitly instead.
+            sql += ` ORDER BY (avg_rating IS NULL) ASC, avg_rating DESC, l.id DESC`;
         } else {
             // Default newest
             sql += ` ORDER BY l.id DESC`;
@@ -89,9 +94,11 @@ router.get("/:id", async (req: Request, res: Response) => {
         const listingSql = `
       SELECT 
         l.*,
+        u.username AS host_username,
         ROUND(AVG(r.rating), 1) AS avg_rating,
         COUNT(r.id) AS review_count
       FROM listings l
+      LEFT JOIN users u ON u.id = l.user_id
       LEFT JOIN reviews r ON l.id = r.listing_id
       WHERE l.id = ?
       GROUP BY l.id
@@ -121,7 +128,7 @@ router.get("/:id", async (req: Request, res: Response) => {
  * POST /api/listings
  * Creates a new stay listing in the SQL database
  */
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
     try {
         const {
             title,
@@ -149,8 +156,8 @@ router.post("/", async (req: Request, res: Response) => {
 
         const id = randomUUID();
         const insertSql = `
-            INSERT INTO listings (id, title, description, image, price, location, country, category)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO listings (id, title, description, image, price, location, country, category, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
         await run(insertSql, [
             id,
@@ -160,7 +167,7 @@ router.post("/", async (req: Request, res: Response) => {
             Number(price),
             location.trim(),
             country.trim(),
-            finalCategory,
+            finalCategory, req.user!.id,
         ]);
 
         const newListing = await queryOne(
@@ -183,7 +190,7 @@ router.post("/", async (req: Request, res: Response) => {
  * PUT /api/listings/:id
  * Updates an existing stay listing
  */
-router.put("/:id", async (req: Request, res: Response) => {
+router.put("/:id", requireAuth, async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         const {
@@ -205,7 +212,7 @@ router.put("/:id", async (req: Request, res: Response) => {
         const updateSql = `
       UPDATE listings 
       SET title = ?, description = ?, image = ?, price = ?, location = ?, country = ?, category = ?
-      WHERE id = ?
+      WHERE id = ? AND user_id = ?
     `;
 
         const result = await run(updateSql, [
@@ -216,7 +223,7 @@ router.put("/:id", async (req: Request, res: Response) => {
             location.trim(),
             country.trim(),
             category ? category.trim() : "Trending",
-            id,
+            id, req.user!.id,
         ]);
 
         if (result.affectedRows === 0) {
@@ -242,10 +249,10 @@ router.put("/:id", async (req: Request, res: Response) => {
  * DELETE /api/listings/:id
  * Deletes a listing and automatically cascades to delete all reviews
  */
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
-        const result = await run("DELETE FROM listings WHERE id = ?", [id]);
+        const result = await run("DELETE FROM listings WHERE id = ? AND user_id = ?", [id, req.user!.id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Listing not found." });

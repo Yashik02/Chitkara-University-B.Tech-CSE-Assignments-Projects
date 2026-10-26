@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import { Star } from 'lucide-react';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface StarRatingDisplayProps {
   rating: number | null;
@@ -20,11 +21,12 @@ export const StarRatingDisplay: React.FC<StarRatingDisplayProps> = ({
   reviewCount,
   size = 15,
 }) => {
+  const { t } = useLanguage();
   if (rating === null || rating === undefined || reviewCount === 0) {
     return (
       <span className="rating-badge" style={{ color: '#666', fontWeight: 500 }}>
         <Star size={size} className="star-icon-gold" />
-        <span>New</span>
+        <span>{t("ratingNew")}</span>
       </span>
     );
   }

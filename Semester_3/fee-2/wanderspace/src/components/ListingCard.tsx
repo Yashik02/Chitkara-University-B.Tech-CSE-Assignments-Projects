@@ -6,11 +6,15 @@
  */
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, MapPin } from 'lucide-react';
 import { Listing } from '../types';
 import { useWishlist } from '../hooks/useWishlist';
 import { StarRatingDisplay } from './StarRating';
+import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
+import { useCurrency } from '../hooks/useCurrency';
+import { useLanguage } from '../hooks/useLanguage';
 
 interface ListingCardProps {
   listing: Listing;
@@ -18,11 +22,21 @@ interface ListingCardProps {
 
 export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
   const { isWishlisted, toggleWishlist } = useWishlist();
+  const { user } = useAuth();
+  const { notify } = useNotifications();
+  const { formatPrice } = useCurrency();
+  const { t } = useLanguage();
+  const navigate = useNavigate();
   const wishlisted = isWishlisted(listing.id);
 
   const handleHeartClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating to detail page
     e.stopPropagation();
+    if (!user) {
+      notify(`${t('login')} to manage your ${t('wishlist')}.`, 'info');
+      navigate('/auth?mode=login');
+      return;
+    }
     toggleWishlist(listing.id);
   };
 
@@ -48,7 +62,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
         <button
           onClick={handleHeartClick}
           className={`heart-btn ${wishlisted ? 'active' : ''}`}
-          title={wishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+          title={!user ? `${t('login')} to manage your ${t('wishlist')}` : wishlisted ? `Remove from ${t('wishlist')}` : `Add to ${t('wishlist')}`}
         >
           <Heart
             size={18}
@@ -82,8 +96,8 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
 
         <div className="card-price-row">
           <div>
-            <span className="price-val">${Number(listing.price).toLocaleString()}</span>
-            <span className="price-unit"> / night</span>
+            <span className="price-val">{formatPrice(Number(listing.price))}</span>
+            <span className="price-unit"> / {t("night")}</span>
           </div>
 
           <Link
@@ -95,7 +109,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
               textDecoration: 'none',
             }}
           >
-            View details →
+            {t("viewDetailsArrow")}
           </Link>
         </div>
       </div>

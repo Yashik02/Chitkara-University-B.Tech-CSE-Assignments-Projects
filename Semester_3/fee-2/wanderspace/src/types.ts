@@ -17,6 +17,8 @@ export interface Listing {
     created_at: string;
     avg_rating: number | null; // Real average calculated by SQL: AVG(rating)
     review_count: number; // Count calculated by SQL: COUNT(id)
+    user_id?: string | null;
+    host_username?: string | null;
 }
 
 export interface Review {
@@ -26,7 +28,9 @@ export interface Review {
     rating: number; // 1 to 5 stars
     comment: string;
     created_at: string;
+    user_id?: string | null;
 }
+export interface User { id: string; username: string; }
 
 export interface ListingFormData {
     title: string;

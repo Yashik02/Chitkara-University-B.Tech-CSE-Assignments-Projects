@@ -2,6 +2,12 @@
 
 DELETE FROM reviews;
 DELETE FROM listings;
+DELETE FROM users;
+
+INSERT INTO users (id, username, password_hash) VALUES
+('10000000-0000-4000-8000-000000000001', 'wanderhost1', '$2b$12$sgT9dIbqF2JM0/eHJTeHUuSEKHK0ER4czRHfMemjJc.wnfwvVhUk2'),
+('10000000-0000-4000-8000-000000000002', 'wanderhost2', '$2b$12$Nbui.aPPKbVxJPOT4RMj5OPZdmCXGNd1YmOexnv3pRGdelJ5MDI9q'),
+('10000000-0000-4000-8000-000000000003', 'wanderhost3', '$2b$12$V9NeYCGaCkkZZBiuogwzSeVLLNhiHPjexkIZjvWHmBKScQzghUruK');
 
 INSERT INTO listings (id, title, description, image, price, location, country, category) VALUES
 ('6670137d-7288-4822-8383-d121b4e00001', 'Malibu Oceanfront Sunset Villa', 'Wake up to panoramic Pacific ocean views and direct private beach access. Features an infinity pool, sun deck, and floor-to-ceiling glass walls.', 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80', 6500, 'Malibu, California', 'United States', 'Beachfront'),
@@ -14,6 +20,13 @@ INSERT INTO listings (id, title, description, image, price, location, country, c
 ('6670137d-7288-4822-8383-d121b4e00008', 'Amalfi Coast Terraced Villa', 'Overlooking the sapphire waters of the Mediterranean, this cliffside villa features private lemon gardens, ceramic tile floors, and romantic sunset terraces.', 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1200&q=80', 4800, 'Positano, Amalfi', 'Italy', 'Trending'),
 ('6670137d-7288-4822-8383-d121b4e00009', 'Swiss Alps Chalet Paradiso', 'A luxury wooden chalet overlooking snow-capped peaks. Cozy up near the central hearth or unwind on the wrap-around balcony with hot mulled cider.', 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80', 3900, 'Zermatt, Valais', 'Switzerland', 'Cabins'),
 ('6670137d-7288-4822-8383-d121b4e0000a', 'Lakeside Glasshouse Retreat', 'Floor-to-ceiling glass sanctuary right by the peaceful lake shore. Enjoy morning kayak trips, private dock, fire pit, and uninterrupted stargazing.', 'https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=1200&q=80', 2950, 'Lake Tahoe, Nevada', 'United States', 'Countryside');
+
+UPDATE listings
+SET user_id = CASE
+    WHEN id IN ('6670137d-7288-4822-8383-d121b4e00001', '6670137d-7288-4822-8383-d121b4e00004', '6670137d-7288-4822-8383-d121b4e00007', '6670137d-7288-4822-8383-d121b4e0000a') THEN '10000000-0000-4000-8000-000000000001'
+    WHEN id IN ('6670137d-7288-4822-8383-d121b4e00002', '6670137d-7288-4822-8383-d121b4e00005', '6670137d-7288-4822-8383-d121b4e00008') THEN '10000000-0000-4000-8000-000000000002'
+    ELSE '10000000-0000-4000-8000-000000000003'
+END;
 
 INSERT INTO reviews (id, listing_id, author, rating, comment) VALUES
 ('7770137d-7288-4822-8383-d121b4e00001', '6670137d-7288-4822-8383-d121b4e00001', 'Sarah Jenkins', 5, 'The view of the ocean is unreal! Hearing the waves crash while falling asleep was magical.'),

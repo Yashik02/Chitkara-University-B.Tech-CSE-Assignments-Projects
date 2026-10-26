@@ -10,9 +10,11 @@ import { Heart, ArrowLeft } from "lucide-react";
 import { Listing } from "../types";
 import { useWishlist } from "../hooks/useWishlist";
 import { ListingCard } from "../components/ListingCard";
+import { useLanguage } from "../hooks/useLanguage";
 
 export const WishlistPage: React.FC = () => {
-    const { wishlistIds } = useWishlist();
+    const { wishlistIds, reconcileWishlist } = useWishlist();
+    const { t } = useLanguage();
     const [allListings, setAllListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
 
@@ -20,7 +22,9 @@ export const WishlistPage: React.FC = () => {
         fetch("/api/listings")
             .then((res) => res.json())
             .then((data) => {
-                setAllListings(data.listings || []);
+                const listings: Listing[] = data.listings || [];
+                setAllListings(listings);
+                reconcileWishlist(listings.map((listing) => listing.id));
                 setLoading(false);
             })
             .catch((err) => {
@@ -29,7 +33,7 @@ export const WishlistPage: React.FC = () => {
             });
     }, []);
 
-    // Filter listings by the saved IDs in localStorage
+    // Filter listings by the saved IDs in the current session.
     const savedListings = allListings.filter((item) =>
         wishlistIds.includes(item.id),
     );
@@ -42,7 +46,7 @@ export const WishlistPage: React.FC = () => {
                 style={{ border: "none", paddingLeft: 0, marginBottom: "1rem" }}
             >
                 <ArrowLeft size={18} />
-                <span>Back to All Stays</span>
+                <span>{t("backToStays")}</span>
             </Link>
 
             <div style={{ marginBottom: "2rem" }}>
@@ -56,12 +60,12 @@ export const WishlistPage: React.FC = () => {
                     }}
                 >
                     <Heart size={26} className="text-red-500 fill-red-500" />
-                    <span>Your Saved Wishlist</span>
+                    <span>{t("savedWishlist")}</span>
                 </h1>
                 <p style={{ color: "#666", fontSize: "0.95rem" }}>
                     {wishlistIds.length === 0
-                        ? "No stays saved yet. Click the heart on any property to save it!"
-                        : `You have saved ${savedListings.length} ${savedListings.length === 1 ? "property" : "properties"} for your next trip.`}
+                        ? `${t("wishlistEmpty")}.`
+                        : `${savedListings.length} ${t("foundProperties")}.`}
                 </p>
             </div>
 
@@ -97,7 +101,7 @@ export const WishlistPage: React.FC = () => {
                             marginBottom: "0.5rem",
                         }}
                     >
-                        Your wishlist is empty
+                        {t("wishlistEmpty")}
                     </h3>
                     <p
                         style={{
@@ -107,11 +111,10 @@ export const WishlistPage: React.FC = () => {
                             margin: "0 auto 1.5rem",
                         }}
                     >
-                        As you search, tap the heart icon on any stay to save
-                        your favorite places to stay and compare.
+                        {t("wishlistEmpty")}. {t("startExploring")}.
                     </p>
                     <Link to="/" className="btn btn-brand">
-                        Start Exploring
+                        {t("startExploring")}
                     </Link>
                 </div>
             ) : (

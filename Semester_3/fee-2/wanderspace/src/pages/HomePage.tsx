@@ -1,83 +1,89 @@
-/**
+﻿/**
  * HomePage Component
  * ------------------------------------------------------------
- * Main landing feed displaying category filters, sorting options,
- * and dynamic grid of stay listings fetched from Express SQL backend.
+ * Fetches and renders listings. The search query is now stored in Redux,
+ * which keeps the app state centralized and reduces prop drilling.
  */
 
-import React, { useState, useEffect } from "react";
-import { Listing } from "../types";
+import React, { useEffect, useState } from "react";
+import { AlertCircle, ArrowUpDown, Sparkles } from "lucide-react";
 import { ListingCard } from "../components/ListingCard";
 import { CategoryFilter } from "../components/CategoryFilter";
-import { ArrowUpDown, AlertCircle, Sparkles } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { clearSearch } from "../features/listings/listingsSlice";
+import { reconcileWishlist } from "../features/wishlist/wishlistSlice";
+import { useLanguage } from "../hooks/useLanguage";
+import { Listing } from "../types";
 
-interface HomePageProps {
-    searchQuery: string;
-    setSearchQuery: (q: string) => void;
-}
+export const HomePage: React.FC = () => {
+    const dispatch = useAppDispatch();
+    const searchQuery = useAppSelector((state) => state.listings.searchQuery);
+    const { t } = useLanguage();
 
-export const HomePage: React.FC<HomePageProps> = ({
-    searchQuery,
-    setSearchQuery,
-}) => {
     const [listings, setListings] = useState<Listing[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
     const [sortBy, setSortBy] = useState<string>("newest");
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch listings from the Express SQL API
     useEffect(() => {
         let isMounted = true;
         setLoading(true);
         setError(null);
 
         const queryParams = new URLSearchParams();
+
         if (selectedCategory && selectedCategory !== "All") {
             queryParams.append("category", selectedCategory);
         }
+
         if (searchQuery.trim()) {
             queryParams.append("search", searchQuery.trim());
         }
+
         if (sortBy) {
             queryParams.append("sort", sortBy);
         }
 
         fetch(`/api/listings?${queryParams.toString()}`)
-            .then((res) => {
-                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-                return res.json();
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                return response.json();
             })
             .then((data) => {
-                if (isMounted) {
-                    setListings(data.listings || []);
-                    setLoading(false);
+                if (!isMounted) {
+                    return;
                 }
+
+                const fetchedListings: Listing[] = data.listings || [];
+                setListings(fetchedListings);
+                dispatch(reconcileWishlist(fetchedListings.map((listing) => listing.id)));
+                setLoading(false);
             })
             .catch((err) => {
-                if (isMounted) {
-                    console.error("Failed to load listings:", err);
-                    setError(
-                        "Could not connect to database or fetch listings.",
-                    );
-                    setLoading(false);
+                if (!isMounted) {
+                    return;
                 }
+
+                console.error("Failed to load listings:", err);
+                setError("Could not connect to database or fetch listings.");
+                setLoading(false);
             });
 
         return () => {
             isMounted = false;
         };
-    }, [selectedCategory, searchQuery, sortBy]);
+    }, [dispatch, searchQuery, selectedCategory, sortBy]);
 
     return (
         <div>
-            {/* Category Pills Filter */}
             <CategoryFilter
                 selectedCategory={selectedCategory}
-                onSelectCategory={(cat) => setSelectedCategory(cat)}
+                onSelectCategory={(category) => setSelectedCategory(category)}
             />
 
-            {/* Sub-header with Results Count & Sort Dropdown */}
             <div
                 style={{
                     display: "flex",
@@ -97,18 +103,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                         }}
                     >
                         {selectedCategory === "All"
-                            ? "Explore Stays"
-                            : `${selectedCategory} Stays`}
+                            ? t("exploreStays")
+                            : `${selectedCategory} ${t("stays")}`}
                     </h1>
                     <p style={{ color: "#666", fontSize: "0.9rem" }}>
                         {loading
-                            ? "Finding available stays..."
-                            : `Found ${listings.length} properties`}
+                            ? t("findingStays")
+                            : `${t("foundProperties")}: ${listings.length}`}
                         {searchQuery && ` matching "${searchQuery}"`}
                     </p>
                 </div>
 
-                {/* Sort Controls */}
                 <div
                     style={{
                         display: "flex",
@@ -124,7 +129,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                             fontWeight: 600,
                         }}
                     >
-                        Sort by:
+                        {t("sortBy")}
                     </span>
                     <select
                         className="form-select"
@@ -134,17 +139,16 @@ export const HomePage: React.FC<HomePageProps> = ({
                             fontSize: "0.88rem",
                         }}
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
+                        onChange={(event) => setSortBy(event.target.value)}
                     >
-                        <option value="newest">Newest First</option>
-                        <option value="rating">Highest Rated</option>
-                        <option value="price_asc">Price: Low to High</option>
-                        <option value="price_desc">Price: High to Low</option>
+                        <option value="newest">{t("newest")}</option>
+                        <option value="rating">{t("highestRated")}</option>
+                        <option value="price_asc">{t("lowToHigh")}</option>
+                        <option value="price_desc">{t("highToLow")}</option>
                     </select>
                 </div>
             </div>
 
-            {/* Loading Skeleton / Spinner State */}
             {loading && (
                 <div
                     style={{
@@ -158,11 +162,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                         size={32}
                         style={{ margin: "0 auto 1rem", color: "#fe424d" }}
                     />
-                    <p>Querying SQL database...</p>
+                    <p>{t("queryingDatabase")}</p>
                 </div>
             )}
 
-            {/* Error State */}
             {error && !loading && (
                 <div
                     style={{
@@ -183,7 +186,6 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
             )}
 
-            {/* Empty State */}
             {!loading && !error && listings.length === 0 && (
                 <div
                     style={{
@@ -208,17 +210,13 @@ export const HomePage: React.FC<HomePageProps> = ({
                     </p>
                     <button
                         className="btn btn-brand"
-                        onClick={() => {
-                            setSearchQuery("");
-                            setSelectedCategory("All");
-                        }}
+                        onClick={() => dispatch(clearSearch())}
                     >
-                        Clear Filters
+                        {t("clearFilters")}
                     </button>
                 </div>
             )}
 
-            {/* Listings Grid */}
             {!loading && !error && listings.length > 0 && (
                 <div className="listings-grid">
                     {listings.map((listing) => (

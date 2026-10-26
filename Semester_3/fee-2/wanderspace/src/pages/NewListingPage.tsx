@@ -8,6 +8,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, PlusCircle, Image as ImageIcon } from "lucide-react";
 import { ListingFormData } from "../types";
+import { useNotifications } from "../hooks/useNotifications";
+import { useLanguage } from "../hooks/useLanguage";
 
 const SAMPLE_IMAGES = [
     {
@@ -30,6 +32,8 @@ const SAMPLE_IMAGES = [
 
 export const NewListingPage: React.FC = () => {
     const navigate = useNavigate();
+    const { notify } = useNotifications();
+    const { t } = useLanguage();
 
     // useRef hook: auto-focus first input field on component mount
     const titleInputRef = useRef<HTMLInputElement>(null);
@@ -91,11 +95,18 @@ export const NewListingPage: React.FC = () => {
             }
 
             const data = await res.json();
+            notify(t("listingCreated"), "success");
             navigate(`/listings/${data.listing.id}`);
         } catch (err: any) {
             console.error(err);
             setError(
                 err.message || "An error occurred while creating listing.",
+            );
+            notify(
+                err instanceof Error
+                    ? err.message
+                    : "Could not create the listing.",
+                "error",
             );
         } finally {
             setLoading(false);
@@ -111,7 +122,7 @@ export const NewListingPage: React.FC = () => {
                 style={{ border: "none", paddingLeft: 0, marginBottom: "1rem" }}
             >
                 <ArrowLeft size={18} />
-                <span>Back to All Stays</span>
+                <span>{t("backToStays")}</span>
             </Link>
 
             <div className="form-shell">
@@ -122,7 +133,7 @@ export const NewListingPage: React.FC = () => {
                         marginBottom: "0.35rem",
                     }}
                 >
-                    Host a New Stay
+                    {t("publishStay")}
                 </h1>
                 <p
                     style={{
@@ -131,8 +142,7 @@ export const NewListingPage: React.FC = () => {
                         marginBottom: "1.75rem",
                     }}
                 >
-                    Fill in details below to publish your property to the
-                    WanderSpace SQL database.
+                    {t("description")}
                 </p>
 
                 {error && (
@@ -153,7 +163,7 @@ export const NewListingPage: React.FC = () => {
                 <form onSubmit={handleSubmit}>
                     {/* Title */}
                     <div className="form-group">
-                        <label className="form-label">Stay Title *</label>
+                        <label className="form-label">{t("stayTitle")} *</label>
                         <input
                             ref={titleInputRef}
                             type="text"
@@ -169,25 +179,25 @@ export const NewListingPage: React.FC = () => {
                     {/* Category & Price */}
                     <div className="form-grid-2">
                         <div className="form-group">
-                            <label className="form-label">Category *</label>
+                            <label className="form-label">{t("category")} *</label>
                             <select
                                 name="category"
                                 className="form-select"
                                 value={formData.category}
                                 onChange={handleChange}
                             >
-                                <option value="Trending">Trending</option>
-                                <option value="Beachfront">Beachfront</option>
-                                <option value="Cabins">Cabins</option>
-                                <option value="Mansions">Mansions</option>
-                                <option value="Countryside">Countryside</option>
-                                <option value="Lofts">Urban Lofts</option>
+                                <option value="Trending">{t("trending")}</option>
+                                <option value="Beachfront">{t("beachfront")}</option>
+                                <option value="Cabins">{t("cabins")}</option>
+                                <option value="Mansions">{t("mansions")}</option>
+                                <option value="Countryside">{t("countryside")}</option>
+                                <option value="Lofts">{t("urbanLofts")}</option>
                             </select>
                         </div>
 
                         <div className="form-group">
                             <label className="form-label">
-                                Price per Night ($ USD) *
+                                {t("pricePerNight")} *
                             </label>
                             <input
                                 type="number"
@@ -206,7 +216,7 @@ export const NewListingPage: React.FC = () => {
                     <div className="form-grid-2">
                         <div className="form-group">
                             <label className="form-label">
-                                City / Location *
+                            {t("city")} *
                             </label>
                             <input
                                 type="text"
@@ -220,7 +230,7 @@ export const NewListingPage: React.FC = () => {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Country *</label>
+                            <label className="form-label">{t("country")} *</label>
                             <input
                                 type="text"
                                 name="country"
@@ -235,7 +245,7 @@ export const NewListingPage: React.FC = () => {
 
                     {/* Image URL with Presets and Live Preview */}
                     <div className="form-group">
-                        <label className="form-label">Photo Image URL *</label>
+                        <label className="form-label">{t("imageUrl")} *</label>
                         <input
                             type="url"
                             name="image"
@@ -256,6 +266,7 @@ export const NewListingPage: React.FC = () => {
                             }}
                         >
                             <span
+                                className="quick-sample-label"
                                 style={{
                                     fontSize: "0.8rem",
                                     color: "#777",
@@ -266,6 +277,7 @@ export const NewListingPage: React.FC = () => {
                             </span>
                             {SAMPLE_IMAGES.map((sample) => (
                                 <button
+                                    className="quick-sample-button"
                                     key={sample.label}
                                     type="button"
                                     onClick={() =>
@@ -291,6 +303,7 @@ export const NewListingPage: React.FC = () => {
                         {/* Live Image Preview Card */}
                         {formData.image && (
                             <div
+                                className="image-preview"
                                 style={{
                                     marginTop: "0.85rem",
                                     borderRadius: "0.75rem",
@@ -319,7 +332,7 @@ export const NewListingPage: React.FC = () => {
 
                     {/* Description */}
                     <div className="form-group">
-                        <label className="form-label">Description</label>
+                        <label className="form-label">{t("description")}</label>
                         <textarea
                             name="description"
                             className="form-control"

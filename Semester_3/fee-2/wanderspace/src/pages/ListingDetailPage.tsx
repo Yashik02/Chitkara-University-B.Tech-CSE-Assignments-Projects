@@ -24,11 +24,20 @@ import {
 import { Listing, Review } from "../types";
 import { useWishlist } from "../hooks/useWishlist";
 import { StarRatingDisplay, StarRatingPicker } from "../components/StarRating";
+import { useAuth } from "../hooks/useAuth";
+import { useNotifications } from "../hooks/useNotifications";
+import { ListingMap } from "../components/ListingMap";
+import { useCurrency } from "../hooks/useCurrency";
+import { useLanguage } from "../hooks/useLanguage";
 
 export const ListingDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { isWishlisted, toggleWishlist } = useWishlist();
+    const { user } = useAuth();
+    const { notify } = useNotifications();
+    const { formatPrice } = useCurrency();
+    const { t } = useLanguage();
 
     const [listing, setListing] = useState<Listing | null>(null);
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -36,11 +45,9 @@ export const ListingDetailPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     // Controlled form state for adding a new review
-    const [reviewAuthor, setReviewAuthor] = useState<string>("");
     const [reviewRating, setReviewRating] = useState<number>(5);
     const [reviewComment, setReviewComment] = useState<string>("");
     const [submittingReview, setSubmittingReview] = useState<boolean>(false);
-    const [reviewMessage, setReviewMessage] = useState<string | null>(null);
 
     // useRef hook: smooth scroll to reviews section
     const reviewsSectionRef = useRef<HTMLDivElement>(null);
@@ -54,7 +61,12 @@ export const ListingDetailPage: React.FC = () => {
 
         fetch(`/api/listings/${id}`)
             .then((res) => {
-                if (!res.ok) throw new Error("Listing not found");
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        throw new Error("This listing was not found.");
+                    }
+                    throw new Error("Could not load this listing.");
+                }
                 return res.json();
             })
             .then((data) => {
@@ -68,7 +80,13 @@ export const ListingDetailPage: React.FC = () => {
                 if (isMounted) {
                     console.error(err);
                     setError("Could not find or load this stay listing.");
-                    setLoading(false);
+                    notify(
+                        err instanceof Error
+                            ? err.message
+                            : "Could not find or load this stay listing.",
+                        "error",
+                    );
+                    navigate("/");
                 }
             });
 
@@ -80,8 +98,12 @@ export const ListingDetailPage: React.FC = () => {
     // Handle Review Submission
     const handleReviewSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!user) {
+            navigate("/auth?mode=login");
+            return;
+        }
         if (!reviewComment.trim()) {
-            alert("Please write a brief comment for your review.");
+            notify(t("reviewRequired"), "info");
             commentInputRef.current?.focus();
             return;
         }
@@ -92,13 +114,20 @@ export const ListingDetailPage: React.FC = () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    author: reviewAuthor || "Anonymous Guest",
                     rating: reviewRating,
                     comment: reviewComment,
                 }),
             });
 
-            if (!res.ok) throw new Error("Failed to submit review");
+            if (!res.ok) {
+                const response = await res.json().catch(() => ({}));
+                throw new Error(
+                    response.error ||
+                        (res.status === 404
+                            ? "This listing was not found."
+                            : "Failed to submit review."),
+                );
+            }
             const data = await res.json();
 
             // Update state dynamically with the new review returned from SQL
@@ -121,18 +150,19 @@ export const ListingDetailPage: React.FC = () => {
 
             // Reset form
             setReviewComment("");
-            setReviewAuthor("");
             setReviewRating(5);
-            setReviewMessage(
-                "Thank you! Your review has been saved to the database.",
-            );
-            setTimeout(() => setReviewMessage(null), 4000);
+            notify(t("reviewAdded"), "success");
 
             // Smoothly scroll down to review
             reviewsSectionRef.current?.scrollIntoView({ behavior: "smooth" });
         } catch (err) {
             console.error(err);
-            alert("Error saving review to database.");
+            notify(
+                err instanceof Error
+                    ? err.message
+                    : "Error saving review to database.",
+                "error",
+            );
         } finally {
             setSubmittingReview(false);
         }
@@ -140,14 +170,16 @@ export const ListingDetailPage: React.FC = () => {
 
     // Handle Deleting a Review
     const handleDeleteReview = async (reviewId: string) => {
-        if (!window.confirm("Are you sure you want to remove this review?"))
-            return;
+        if (!window.confirm(t("confirmDeleteReview"))) return;
 
         try {
             const res = await fetch(`/api/reviews/${reviewId}`, {
                 method: "DELETE",
             });
-            if (!res.ok) throw new Error("Failed to delete review");
+            if (!res.ok) {
+                const response = await res.json().catch(() => ({}));
+                throw new Error(response.error || t("reviewDeleteFailed"));
+            }
 
             const updated = reviews.filter((r) => r.id !== reviewId);
             setReviews(updated);
@@ -167,19 +199,16 @@ export const ListingDetailPage: React.FC = () => {
                     review_count: updated.length,
                 });
             }
+            notify(t("reviewDeleted"), "success");
         } catch (err) {
             console.error(err);
-            alert("Could not delete review.");
+            notify(t("reviewDeleteFailed"), "error");
         }
     };
 
     // Handle Deleting the Entire Listing
     const handleDeleteListing = async () => {
-        if (
-            !window.confirm(
-                "Are you sure you want to delete this listing? All associated reviews will also be removed via SQL CASCADE.",
-            )
-        ) {
+        if (!window.confirm(t("confirmDeleteListing"))) {
             return;
         }
 
@@ -187,12 +216,17 @@ export const ListingDetailPage: React.FC = () => {
             const res = await fetch(`/api/listings/${id}`, {
                 method: "DELETE",
             });
-            if (!res.ok) throw new Error("Failed to delete listing");
-            alert("Listing deleted successfully.");
+            if (!res.ok) {
+                const response = await res.json().catch(() => ({}));
+                throw new Error(
+                    response.error || "Could not delete this listing.",
+                );
+            }
+            notify(t("listingDeleted"), "success");
             navigate("/");
         } catch (err) {
             console.error(err);
-            alert("Could not delete listing.");
+            notify(t("listingDeleteFailed"), "error");
         }
     };
 
@@ -205,7 +239,7 @@ export const ListingDetailPage: React.FC = () => {
                     color: "#666",
                 }}
             >
-                <p>Loading stay details from database...</p>
+                <p>{t("loading")}</p>
             </div>
         );
     }
@@ -251,18 +285,20 @@ export const ListingDetailPage: React.FC = () => {
                     style={{ border: "none", paddingLeft: 0 }}
                 >
                     <ArrowLeft size={18} />
-                    <span>All Stays</span>
+                    <span>{t("allStays")}</span>
                 </Link>
 
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                     <button
-                        onClick={() => toggleWishlist(listing.id)}
+                        onClick={() => {
+                            if (!user) {
+                                navigate("/auth?mode=login");
+                                return;
+                            }
+                            toggleWishlist(listing.id);
+                        }}
                         className="btn btn-outline"
-                        title={
-                            wishlisted
-                                ? "Saved in Wishlist"
-                                : "Save to Wishlist"
-                        }
+                        title={wishlisted ? t("saved") : t("save")}
                     >
                         <Heart
                             size={18}
@@ -270,24 +306,28 @@ export const ListingDetailPage: React.FC = () => {
                                 wishlisted ? "fill-red-500 text-red-500" : ""
                             }
                         />
-                        <span>{wishlisted ? "Saved" : "Save"}</span>
+                        <span>{wishlisted ? t("saved") : t("save")}</span>
                     </button>
 
-                    <Link
-                        to={`/listings/${listing.id}/edit`}
-                        className="btn btn-outline"
-                    >
-                        <Edit size={16} />
-                        <span>Edit</span>
-                    </Link>
+                    {user?.id === listing.user_id && (
+                        <Link
+                            to={`/listings/${listing.id}/edit`}
+                            className="btn btn-outline"
+                        >
+                            <Edit size={16} />
+                            <span>{t("edit")}</span>
+                        </Link>
+                    )}
 
-                    <button
-                        onClick={handleDeleteListing}
-                        className="btn btn-danger"
-                    >
-                        <Trash2 size={16} />
-                        <span>Delete</span>
-                    </button>
+                    {user?.id === listing.user_id && (
+                        <button
+                            onClick={handleDeleteListing}
+                            className="btn btn-danger"
+                        >
+                            <Trash2 size={16} />
+                            <span>{t("delete")}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -314,6 +354,11 @@ export const ListingDetailPage: React.FC = () => {
                     fontSize: "0.95rem",
                 }}
             >
+                {listing.host_username && (
+                    <span>
+                        {t("hostedBy")} <strong>{listing.host_username}</strong>
+                    </span>
+                )}
                 <StarRatingDisplay
                     rating={listing.avg_rating}
                     reviewCount={listing.review_count}
@@ -421,6 +466,7 @@ export const ListingDetailPage: React.FC = () => {
                             About this space
                         </h3>
                         <p
+                            className="listing-description"
                             style={{
                                 color: "#333",
                                 fontSize: "1rem",
@@ -435,6 +481,7 @@ export const ListingDetailPage: React.FC = () => {
 
                     {/* Highlights */}
                     <div
+                        className="persistence-panel"
                         style={{
                             display: "flex",
                             flexDirection: "column",
@@ -446,6 +493,7 @@ export const ListingDetailPage: React.FC = () => {
                         }}
                     >
                         <div
+                            className="booking-card"
                             style={{
                                 display: "flex",
                                 gap: "0.75rem",
@@ -519,13 +567,14 @@ export const ListingDetailPage: React.FC = () => {
                         >
                             <div>
                                 <span
+                                    className="listing-price"
                                     style={{
                                         fontSize: "1.75rem",
                                         fontWeight: 800,
                                         color: "#222",
                                     }}
                                 >
-                                    ${Number(listing.price).toLocaleString()}
+                                    {formatPrice(Number(listing.price))}
                                 </span>
                                 <span
                                     style={{
@@ -534,7 +583,7 @@ export const ListingDetailPage: React.FC = () => {
                                     }}
                                 >
                                     {" "}
-                                    / night
+                                    / {t("perNight")}
                                 </span>
                             </div>
                             <StarRatingDisplay
@@ -634,8 +683,9 @@ export const ListingDetailPage: React.FC = () => {
                                 fontSize: "1rem",
                             }}
                             onClick={() =>
-                                alert(
+                                notify(
                                     "Booking flow is planned for a future release.",
+                                    "info",
                                 )
                             }
                         >
@@ -659,6 +709,26 @@ export const ListingDetailPage: React.FC = () => {
             {/* ====================================================================
           Reviews & Rating Section (SQL Calculated + Controlled Form)
          ==================================================================== */}
+            <section
+                className="listing-map-section"
+                aria-labelledby="location-heading"
+            >
+                <div className="listing-section-heading">
+                    <div>
+                        <h2 id="location-heading">{t("whereYouStay")}</h2>
+                        <p>
+                            Explore the area around {listing.location},{" "}
+                            {listing.country}.
+                        </p>
+                    </div>
+                    <MapPin size={24} color="#fe424d" aria-hidden="true" />
+                </div>
+                <ListingMap
+                    location={listing.location}
+                    country={listing.country}
+                />
+            </section>
+
             <section ref={reviewsSectionRef} className="reviews-container">
                 <div
                     style={{
@@ -672,7 +742,7 @@ export const ListingDetailPage: React.FC = () => {
                 >
                     <div>
                         <h2 style={{ fontSize: "1.5rem", fontWeight: 800 }}>
-                            Guest Reviews & Ratings
+                            {t("guestReviews")}
                         </h2>
                         <div
                             style={{
@@ -687,14 +757,9 @@ export const ListingDetailPage: React.FC = () => {
                                 reviewCount={listing.review_count}
                                 size={18}
                             />
-                            <span style={{ fontSize: "0.9rem", color: "#666" }}>
-                                (Calculated dynamically with SQL{" "}
-                                <code>AVG(rating)</code>)
-                            </span>
                         </div>
                     </div>
                 </div>
-
                 {/* Add Review Controlled Form */}
                 <div
                     style={{
@@ -713,7 +778,7 @@ export const ListingDetailPage: React.FC = () => {
                             marginBottom: "0.5rem",
                         }}
                     >
-                        Leave a Review
+                        {t("leaveReview")}
                     </h3>
                     <p
                         style={{
@@ -726,84 +791,59 @@ export const ListingDetailPage: React.FC = () => {
                         their perfect stay.
                     </p>
 
-                    {reviewMessage && (
-                        <div
-                            style={{
-                                background: "#dcfce7",
-                                color: "#15803d",
-                                padding: "0.75rem 1rem",
-                                borderRadius: "0.65rem",
-                                marginBottom: "1rem",
-                                fontSize: "0.9rem",
-                                fontWeight: 600,
-                            }}
-                        >
-                            {reviewMessage}
-                        </div>
+                    {user ? (
+                        <form onSubmit={handleReviewSubmit}>
+                            {/* Interactive 5-Star Rating Picker */}
+                            <div className="form-group">
+                                <label className="form-label">
+                                    {t("yourRating")}
+                                </label>
+                                <StarRatingPicker
+                                    value={reviewRating}
+                                    onChange={setReviewRating}
+                                />
+                            </div>
+
+                            {/* Comment Textarea */}
+                            <div className="form-group">
+                                <label className="form-label">
+                                    {t("yourExperience")}
+                                </label>
+                                <textarea
+                                    ref={commentInputRef}
+                                    className="form-control"
+                                    rows={3}
+                                    placeholder="How was the view, comfort, and cleanliness?"
+                                    value={reviewComment}
+                                    onChange={(e) =>
+                                        setReviewComment(e.target.value)
+                                    }
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={submittingReview}
+                                className="btn btn-brand"
+                            >
+                                <Send size={16} />
+                                <span>
+                                    {submittingReview
+                                        ? t("saving")
+                                        : t("submitReview")}
+                                </span>
+                            </button>
+                        </form>
+                    ) : (
+                        <div className="form-hint">{t("loginToReview")}</div>
                     )}
-
-                    <form onSubmit={handleReviewSubmit}>
-                        {/* Interactive 5-Star Rating Picker */}
-                        <div className="form-group">
-                            <label className="form-label">
-                                Your Rating (1 to 5 Stars)
-                            </label>
-                            <StarRatingPicker
-                                value={reviewRating}
-                                onChange={setReviewRating}
-                            />
-                        </div>
-
-                        {/* Author Name */}
-                        <div className="form-group">
-                            <label className="form-label">Your Name</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                placeholder="e.g. Alex Robinson (defaults to Anonymous Guest)"
-                                value={reviewAuthor}
-                                onChange={(e) =>
-                                    setReviewAuthor(e.target.value)
-                                }
-                            />
-                        </div>
-
-                        {/* Comment Textarea */}
-                        <div className="form-group">
-                            <label className="form-label">
-                                Your Experience
-                            </label>
-                            <textarea
-                                ref={commentInputRef}
-                                className="form-control"
-                                rows={3}
-                                placeholder="How was the view, comfort, and cleanliness?"
-                                value={reviewComment}
-                                onChange={(e) =>
-                                    setReviewComment(e.target.value)
-                                }
-                                required
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={submittingReview}
-                            className="btn btn-brand"
-                        >
-                            <Send size={16} />
-                            <span>
-                                {submittingReview
-                                    ? "Saving to SQL..."
-                                    : "Submit Review"}
-                            </span>
-                        </button>
-                    </form>
                 </div>
 
                 {/* Reviews List */}
                 {reviews.length === 0 ? (
                     <div
+                        className="no-reviews-state"
                         style={{
                             textAlign: "center",
                             padding: "2.5rem",
@@ -812,11 +852,17 @@ export const ListingDetailPage: React.FC = () => {
                             color: "#666",
                         }}
                     >
-                        <p style={{ fontWeight: 600 }}>
-                            No reviews yet for this stay.
+                        <p
+                            className="no-reviews-title"
+                            style={{ fontWeight: 600 }}
+                        >
+                            {t("noReviews")}
                         </p>
-                        <p style={{ fontSize: "0.88rem" }}>
-                            Be the first guest to leave a rating above!
+                        <p
+                            className="no-reviews-message"
+                            style={{ fontSize: "0.88rem" }}
+                        >
+                            {t("firstReview")}
                         </p>
                     </div>
                 ) : (
@@ -882,31 +928,33 @@ export const ListingDetailPage: React.FC = () => {
                                             rating={r.rating}
                                             size={15}
                                         />
-                                        <button
-                                            onClick={() =>
-                                                handleDeleteReview(r.id)
-                                            }
-                                            title="Delete review"
-                                            style={{
-                                                background: "none",
-                                                border: "none",
-                                                color: "#aaa",
-                                                cursor: "pointer",
-                                                padding: "4px",
-                                            }}
-                                            onMouseEnter={(e) =>
-                                                ((
-                                                    e.target as HTMLElement
-                                                ).style.color = "#ef4444")
-                                            }
-                                            onMouseLeave={(e) =>
-                                                ((
-                                                    e.target as HTMLElement
-                                                ).style.color = "#aaa")
-                                            }
-                                        >
-                                            <Trash size={16} />
-                                        </button>
+                                        {user?.id === r.user_id && (
+                                            <button
+                                                onClick={() =>
+                                                    handleDeleteReview(r.id)
+                                                }
+                                                title="Delete review"
+                                                style={{
+                                                    background: "none",
+                                                    border: "none",
+                                                    color: "#aaa",
+                                                    cursor: "pointer",
+                                                    padding: "4px",
+                                                }}
+                                                onMouseEnter={(e) =>
+                                                    ((
+                                                        e.target as HTMLElement
+                                                    ).style.color = "#ef4444")
+                                                }
+                                                onMouseLeave={(e) =>
+                                                    ((
+                                                        e.target as HTMLElement
+                                                    ).style.color = "#aaa")
+                                                }
+                                            >
+                                                <Trash size={16} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 

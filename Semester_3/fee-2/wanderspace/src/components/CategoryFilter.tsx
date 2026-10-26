@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { useLanguage } from '../hooks/useLanguage';
 import { Sparkles, Palmtree, Trees, Castle, Sun, Building, Compass } from 'lucide-react';
 
 interface CategoryFilterProps {
@@ -26,6 +27,11 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   selectedCategory,
   onSelectCategory,
 }) => {
+  const { t } = useLanguage();
+  const translatedLabels: Record<string, string> = {
+    All: t('allStays'), Trending: t('trending'), Beachfront: t('beachfront'),
+    Cabins: t('cabins'), Mansions: t('mansions'), Countryside: t('countryside'), Lofts: t('urbanLofts'),
+  };
   return (
     <div className="category-bar">
       {CATEGORIES.map((cat) => {
@@ -37,9 +43,10 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
             key={cat.id}
             onClick={() => onSelectCategory(cat.id)}
             className={`category-pill ${isActive ? 'active' : ''}`}
+            aria-pressed={isActive}
           >
             <Icon size={16} />
-            <span>{cat.label}</span>
+            <span>{translatedLabels[cat.id] || cat.label}</span>
           </button>
         );
       })}

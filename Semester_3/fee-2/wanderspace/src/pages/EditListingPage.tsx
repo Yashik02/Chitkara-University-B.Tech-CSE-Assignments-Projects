@@ -8,10 +8,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { ListingFormData } from '../types';
+import { useNotifications } from '../hooks/useNotifications';
+import { useLanguage } from '../hooks/useLanguage';
 
 export const EditListingPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { notify } = useNotifications();
+  const { t } = useLanguage();
 
   const [formData, setFormData] = useState<ListingFormData>({
     title: '',
@@ -30,7 +34,12 @@ export const EditListingPage: React.FC = () => {
   useEffect(() => {
     fetch(`/api/listings/${id}`)
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load listing');
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('This listing no longer exists.');
+          }
+          throw new Error('Failed to load listing');
+        }
         return res.json();
       })
       .then((data) => {
@@ -49,8 +58,9 @@ export const EditListingPage: React.FC = () => {
       })
       .catch((err) => {
         console.error(err);
-        setError('Could not fetch listing to edit.');
-        setLoading(false);
+        const message = err instanceof Error ? err.message : 'Could not fetch listing to edit.';
+        notify(message, 'error');
+        navigate('/');
       });
   }, [id]);
 
@@ -74,10 +84,12 @@ export const EditListingPage: React.FC = () => {
       });
 
       if (!res.ok) throw new Error('Failed to update listing in database');
+      notify(t('listingUpdated'), 'success');
       navigate(`/listings/${id}`);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Error updating listing.');
+      notify(err instanceof Error ? err.message : 'Could not update the listing.', 'error');
     } finally {
       setSaving(false);
     }
@@ -86,7 +98,7 @@ export const EditListingPage: React.FC = () => {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-        <p>Loading stay data...</p>
+        <p>{t('loading')}</p>
       </div>
     );
   }
@@ -99,12 +111,12 @@ export const EditListingPage: React.FC = () => {
         style={{ border: 'none', paddingLeft: 0, marginBottom: '1rem' }}
       >
         <ArrowLeft size={18} />
-        <span>Back to Stay Details</span>
+        <span>{t('viewDetails')}</span>
       </Link>
 
       <div className="form-shell">
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.35rem' }}>
-          Edit Stay Listing
+          {t('updateStay')}
         </h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1.75rem' }}>
           Update fields below and save changes to update the SQL database record.
@@ -112,6 +124,7 @@ export const EditListingPage: React.FC = () => {
 
         {error && (
           <div
+            className="image-preview"
             style={{
               background: '#fee2e2',
               color: '#991b1b',
@@ -127,7 +140,7 @@ export const EditListingPage: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Stay Title *</label>
+            <label className="form-label">{t('stayTitle')} *</label>
             <input
               type="text"
               name="title"
@@ -140,24 +153,24 @@ export const EditListingPage: React.FC = () => {
 
           <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label">Category *</label>
+              <label className="form-label">{t('category')} *</label>
               <select
                 name="category"
                 className="form-select"
                 value={formData.category}
                 onChange={handleChange}
               >
-                <option value="Trending">Trending</option>
-                <option value="Beachfront">Beachfront</option>
-                <option value="Cabins">Cabins</option>
-                <option value="Mansions">Mansions</option>
-                <option value="Countryside">Countryside</option>
-                <option value="Lofts">Urban Lofts</option>
+                <option value="Trending">{t('trending')}</option>
+                <option value="Beachfront">{t('beachfront')}</option>
+                <option value="Cabins">{t('cabins')}</option>
+                <option value="Mansions">{t('mansions')}</option>
+                <option value="Countryside">{t('countryside')}</option>
+                <option value="Lofts">{t('urbanLofts')}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Price per Night ($ USD) *</label>
+              <label className="form-label">{t('pricePerNight')} *</label>
               <input
                 type="number"
                 name="price"
@@ -171,7 +184,7 @@ export const EditListingPage: React.FC = () => {
 
           <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label">Location / City *</label>
+              <label className="form-label">{t('city')} *</label>
               <input
                 type="text"
                 name="location"
@@ -183,7 +196,7 @@ export const EditListingPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Country *</label>
+              <label className="form-label">{t('country')} *</label>
               <input
                 type="text"
                 name="country"
@@ -196,7 +209,7 @@ export const EditListingPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Photo Image URL *</label>
+            <label className="form-label">{t('imageUrl')} *</label>
             <input
               type="url"
               name="image"
@@ -226,7 +239,7 @@ export const EditListingPage: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Description</label>
+            <label className="form-label">{t('description')}</label>
             <textarea
               name="description"
               className="form-control"
@@ -238,12 +251,12 @@ export const EditListingPage: React.FC = () => {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
             <Link to={`/listings/${id}`} className="btn btn-outline">
-              Cancel
+              {t('cancel')}
             </Link>
 
             <button type="submit" disabled={saving} className="btn btn-brand">
               <Save size={18} />
-              <span>{saving ? 'Updating SQL...' : 'Save Changes'}</span>
+              <span>{saving ? t('updating') : t('saveChanges')}</span>
             </button>
           </div>
         </form>

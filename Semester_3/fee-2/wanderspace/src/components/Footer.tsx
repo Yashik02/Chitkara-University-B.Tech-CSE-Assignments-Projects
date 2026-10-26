@@ -6,8 +6,10 @@
 
 import React from "react";
 import { Compass, Heart } from "lucide-react";
+import { useLanguage } from "../hooks/useLanguage";
 
 export const Footer: React.FC = () => {
+    const { t } = useLanguage();
     return (
         <footer className="footer">
             <div className="footer-inner">
@@ -31,26 +33,23 @@ export const Footer: React.FC = () => {
                         maxWidth: "500px",
                     }}
                 >
-                    A full-stack student project built with React, Express, and
-                    Relational SQL. Designed with love for clean architecture
-                    and human-crafted design.
+                    {t("footerDescription")}
                 </p>
 
                 <div className="footer-links">
                     <a href="#privacy" className="footer-link">
-                        Privacy Policy
+                        {t("privacy")}
                     </a>
                     <a href="#terms" className="footer-link">
-                        Terms of Service
+                        {t("terms")}
                     </a>
                     <a href="#destinations" className="footer-link">
-                        Destinations
+                        {t("destinations")}
                     </a>
                 </div>
 
                 <div className="footer-copy">
-                    © {new Date().getFullYear()} WanderSpace, Inc. All rights
-                    reserved.
+                    © {new Date().getFullYear()} WanderSpace, Inc. {t("allRightsReserved")}
                 </div>
             </div>
         </footer>
