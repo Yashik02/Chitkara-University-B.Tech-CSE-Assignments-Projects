@@ -1,27 +1,67 @@
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import bcrypt from "bcrypt";
-import { randomUUID } from "node:crypto";
-import { queryOne, run } from "./db";
+import { createClient } from "@supabase/supabase-js";
+import "dotenv/config";
 
-export interface AuthUser { id: string; username: string; }
-passport.use(new LocalStrategy(async (username, password, done) => {
-    try {
-        const user = await queryOne<any>("SELECT id, username, password_hash FROM users WHERE username = ?", [username.trim()]);
-        if (!user || !(await bcrypt.compare(password, user.password_hash))) return done(null, false, { message: "Invalid username or password." });
-        return done(null, { id: user.id, username: user.username });
-    } catch (error) { return done(error); }
-}));
-passport.serializeUser((user: any, done) => done(null, user.id));
-passport.deserializeUser(async (id: string, done) => {
-    try { done(null, await queryOne<any>("SELECT id, username FROM users WHERE id = ?", [id])); }
-    catch (error) { done(error); }
-});
+export interface AuthUser {
+    id: string;
+    username: string;
+}
+
+const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
+
+function authEmail(username: string): string {
+    return `${username.trim().toLowerCase()}@users.wanderspace.local`;
+}
+
 export async function registerUser(username: string, password: string): Promise<AuthUser> {
     const normalized = username.trim();
-    if (await queryOne("SELECT id FROM users WHERE username = ?", [normalized])) throw new Error("Username is already taken.");
-    const user = { id: randomUUID(), username: normalized };
-    await run("INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)", [user.id, user.username, await bcrypt.hash(password, 12)]);
-    return user;
+    const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", normalized)
+        .maybeSingle();
+    if (existing) throw new Error("Username is already taken.");
+
+    const { data, error } = await supabase.auth.admin.createUser({
+        email: authEmail(normalized),
+        password,
+        email_confirm: true,
+        user_metadata: { username: normalized },
+    });
+    if (error || !data.user) throw error ?? new Error("Registration failed.");
+
+    const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({ id: data.user.id, username: normalized });
+    if (profileError) {
+        await supabase.auth.admin.deleteUser(data.user.id);
+        throw profileError;
+    }
+    return { id: data.user.id, username: normalized };
 }
-export default passport;
+
+export async function loginUser(username: string, password: string): Promise<AuthUser> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail(username),
+        password,
+    });
+    if (error || !data.user) throw new Error("Invalid username or password.");
+    const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", data.user.id)
+        .single();
+    if (profileError) throw profileError;
+    return { id: data.user.id, username: profile.username };
+}
+
+export async function getUser(id: string): Promise<AuthUser | null> {
+    const { data } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .eq("id", id)
+        .maybeSingle();
+    return data;
+}

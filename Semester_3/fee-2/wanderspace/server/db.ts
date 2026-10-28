@@ -1,22 +1,21 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import mysql, { ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import "dotenv/config";
+import pg from "pg";
 
-export const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    multipleStatements: true,
+const { Pool } = pg;
+export const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 10,
 });
 
 export async function initDatabase(): Promise<void> {
-    await runSqlFile("schema.sql");
+    if (process.env.AUTO_INIT_DB === "true") {
+        await runSqlFile("schema.sql");
+    }
 
-    const [rows] = await pool.query<RowDataPacket[]>(
+    const { rows } = await pool.query<{ count: string }>(
         "SELECT COUNT(*) AS count FROM listings",
     );
     const listingCount = Number(rows[0]?.count ?? 0);
@@ -36,15 +35,20 @@ async function runSqlFile(fileName: string): Promise<void> {
     await pool.query(sql);
 }
 
-export async function query<T extends RowDataPacket = RowDataPacket>(
+function toPostgresPlaceholders(sql: string): string {
+    let index = 0;
+    return sql.replace(/\?/g, () => `$${++index}`);
+}
+
+export async function query<T = Record<string, unknown>>(
     sql: string,
     params: unknown[] = [],
 ): Promise<T[]> {
-    const [rows] = await pool.query<T[]>(sql, params);
-    return rows;
+    const result = await pool.query<T>(toPostgresPlaceholders(sql), params);
+    return result.rows;
 }
 
-export async function queryOne<T extends RowDataPacket = RowDataPacket>(
+export async function queryOne<T = Record<string, unknown>>(
     sql: string,
     params: unknown[] = [],
 ): Promise<T | null> {
@@ -54,8 +58,8 @@ export async function queryOne<T extends RowDataPacket = RowDataPacket>(
 
 export async function run(
     sql: string,
-    params: any[] = [],
-): Promise<ResultSetHeader> {
-    const [result] = await pool.execute<ResultSetHeader>(sql, params);
-    return result;
+    params: unknown[] = [],
+): Promise<{ affectedRows: number }> {
+    const result = await pool.query(toPostgresPlaceholders(sql), params);
+    return { affectedRows: result.rowCount ?? 0 };
 }

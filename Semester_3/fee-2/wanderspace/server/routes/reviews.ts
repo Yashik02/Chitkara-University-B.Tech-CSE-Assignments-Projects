@@ -21,14 +21,14 @@ router.post("/listings/:id/reviews", requireAuth, async (req: Request, res: Resp
         }
 
         const numericRating = Number(rating);
-        if (isNaN(numericRating) || numericRating < 1 || numericRating > 5) {
+        if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
             return res
                 .status(400)
                 .json({ error: "Rating must be an integer between 1 and 5." });
         }
 
         // Check if listing exists
-        const listing = await queryOne("SELECT id FROM listings WHERE id = ?", [
+        const listing = await queryOne("SELECT id FROM listings WHERE id = $1", [
             listingId,
         ]);
         if (!listing) {
@@ -38,7 +38,7 @@ router.post("/listings/:id/reviews", requireAuth, async (req: Request, res: Resp
         const reviewId = randomUUID();
         const insertSql = `
       INSERT INTO reviews (id, listing_id, author, user_id, rating, comment)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `;
 
         await run(insertSql, [
@@ -48,7 +48,7 @@ router.post("/listings/:id/reviews", requireAuth, async (req: Request, res: Resp
             numericRating,
             comment.trim(),
         ]);
-        const newReview = await queryOne("SELECT * FROM reviews WHERE id = ?", [
+        const newReview = await queryOne("SELECT * FROM reviews WHERE id = $1", [
             reviewId,
         ]);
 
@@ -69,7 +69,7 @@ router.post("/listings/:id/reviews", requireAuth, async (req: Request, res: Resp
 router.delete("/reviews/:id", requireAuth, async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
-        const result = await run("DELETE FROM reviews WHERE id = ? AND user_id = ?", [id, req.user!.id]);
+        const result = await run("DELETE FROM reviews WHERE id = $1 AND user_id = $2", [id, req.user!.id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Review not found." });

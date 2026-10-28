@@ -7,7 +7,7 @@ import listingsRouter from "./server/routes/listings";
 import reviewsRouter from "./server/routes/reviews";
 import authRouter from "./server/routes/auth";
 import session from "express-session";
-import passport from "./server/auth";
+import { getUser } from "./server/auth";
 
 const PORT = 3000;
 
@@ -32,10 +32,20 @@ async function startServer() {
             },
         }),
     );
-    app.use(passport.initialize());
-    app.use(passport.session());
+    app.use(async (req, res, next) => {
+        try {
+            req.user = req.session.userId
+                ? (await getUser(req.session.userId)) ?? undefined
+                : undefined;
+            req.isAuthenticated = () => Boolean(req.user);
+            next();
+        } catch (error) {
+            console.error("Failed to restore authenticated user:", error);
+            res.status(500).json({ error: "Failed to restore session." });
+        }
+    });
 
-    // Initialize the MySQL database
+    // Initialize the Supabase PostgreSQL database when requested.
     try {
         await initDatabase();
         console.log("Database initialized successfully.");

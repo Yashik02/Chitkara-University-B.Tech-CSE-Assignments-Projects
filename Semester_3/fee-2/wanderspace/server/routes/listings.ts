@@ -8,9 +8,6 @@ const requireAuth = (req: Request, res: Response, next: Function) => req.isAuthe
 /**
  * GET /api/listings
  * Retrieves all listings, with optional search query, category filtering, and sorting.
- *
- * Ratings are calculated by combining listings with their reviews using SQL
- * LEFT JOIN and ROUND(AVG(reviews.rating), 1).
  */
 router.get("/", async (req: Request, res: Response) => {
     try {
@@ -28,11 +25,17 @@ router.get("/", async (req: Request, res: Response) => {
         l.category,
         u.username AS host_username,
         l.created_at,
-        ROUND(AVG(r.rating), 1) AS avg_rating,
-        COUNT(r.id) AS review_count
+        rating_summary.avg_rating,
+        rating_summary.review_count
       FROM listings l
-      LEFT JOIN users u ON u.id = l.user_id
-      LEFT JOIN reviews r ON l.id = r.listing_id
+      LEFT JOIN profiles u ON u.id = l.user_id
+      LEFT JOIN LATERAL (
+        SELECT
+          ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+          COUNT(*)::integer AS review_count
+        FROM reviews
+        WHERE listing_id = l.id
+      ) rating_summary ON true
       WHERE 1=1
     `;
 
@@ -40,23 +43,21 @@ router.get("/", async (req: Request, res: Response) => {
 
         // Category filter
         if (category && category !== "All") {
-            sql += ` AND l.category = ?`;
             params.push(category);
+            sql += ` AND l.category = $${params.length}`;
         }
 
         // Search filter (title, location, country, or category)
         if (search && typeof search === "string" && search.trim() !== "") {
-            sql += ` AND (
-        l.title LIKE ? OR 
-        l.location LIKE ? OR 
-        l.country LIKE ? OR 
-        l.category LIKE ?
-      )`;
             const pattern = `%${search.trim()}%`;
             params.push(pattern, pattern, pattern, pattern);
+            sql += ` AND (
+        l.title ILIKE $${params.length - 3} OR 
+        l.location ILIKE $${params.length - 2} OR 
+        l.country ILIKE $${params.length - 1} OR 
+        l.category ILIKE $${params.length}
+      )`;
         }
-
-        sql += ` GROUP BY l.id`;
 
         // Sorting
         if (sort === "price_asc") {
@@ -64,9 +65,7 @@ router.get("/", async (req: Request, res: Response) => {
         } else if (sort === "price_desc") {
             sql += ` ORDER BY l.price DESC`;
         } else if (sort === "rating") {
-            // MySQL does not support PostgreSQL's NULLS LAST syntax.
-            // Sort unrated stays after rated stays explicitly instead.
-            sql += ` ORDER BY (avg_rating IS NULL) ASC, avg_rating DESC, l.id DESC`;
+            sql += ` ORDER BY (rating_summary.avg_rating IS NULL) ASC, rating_summary.avg_rating DESC, l.id DESC`;
         } else {
             // Default newest
             sql += ` ORDER BY l.id DESC`;
@@ -95,13 +94,18 @@ router.get("/:id", async (req: Request, res: Response) => {
       SELECT 
         l.*,
         u.username AS host_username,
-        ROUND(AVG(r.rating), 1) AS avg_rating,
-        COUNT(r.id) AS review_count
+        rating_summary.avg_rating,
+        rating_summary.review_count
       FROM listings l
-      LEFT JOIN users u ON u.id = l.user_id
-      LEFT JOIN reviews r ON l.id = r.listing_id
-      WHERE l.id = ?
-      GROUP BY l.id
+      LEFT JOIN profiles u ON u.id = l.user_id
+      LEFT JOIN LATERAL (
+        SELECT
+          ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+          COUNT(*)::integer AS review_count
+        FROM reviews
+        WHERE listing_id = l.id
+      ) rating_summary ON true
+      WHERE l.id = $1
     `;
         const listing = await queryOne(listingSql, [id]);
 
@@ -112,7 +116,7 @@ router.get("/:id", async (req: Request, res: Response) => {
         // 2. Fetch all individual reviews for this listing
         const reviewsSql = `
       SELECT * FROM reviews 
-      WHERE listing_id = ? 
+      WHERE listing_id = $1 
       ORDER BY id DESC
     `;
         const reviews = await query(reviewsSql, [id]);
@@ -140,7 +144,6 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
             category,
         } = req.body;
 
-        // Basic server-side validation
         if (!title || !price || !location || !country) {
             return res.status(400).json({
                 error: "Title, price, location, and country are required.",
@@ -157,8 +160,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         const id = randomUUID();
         const insertSql = `
             INSERT INTO listings (id, title, description, image, price, location, country, category, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
         await run(insertSql, [
             id,
             title.trim(),
@@ -167,11 +170,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
             Number(price),
             location.trim(),
             country.trim(),
-            finalCategory, req.user!.id,
+            finalCategory, 
+            req.user!.id,
         ]);
 
         const newListing = await queryOne(
-            "SELECT * FROM listings WHERE id = ?",
+            "SELECT * FROM listings WHERE id = $1",
             [id],
         );
         res.status(201).json({
@@ -211,8 +215,8 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
 
         const updateSql = `
       UPDATE listings 
-      SET title = ?, description = ?, image = ?, price = ?, location = ?, country = ?, category = ?
-      WHERE id = ? AND user_id = ?
+      SET title = $1, description = $2, image = $3, price = $4, location = $5, country = $6, category = $7
+      WHERE id = $8 AND user_id = $9
     `;
 
         const result = await run(updateSql, [
@@ -223,7 +227,8 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
             location.trim(),
             country.trim(),
             category ? category.trim() : "Trending",
-            id, req.user!.id,
+            id, 
+            req.user!.id,
         ]);
 
         if (result.affectedRows === 0) {
@@ -232,7 +237,7 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
                 .json({ error: "Listing not found to update." });
         }
 
-        const updated = await queryOne("SELECT * FROM listings WHERE id = ?", [
+        const updated = await queryOne("SELECT * FROM listings WHERE id = $1", [
             id,
         ]);
         res.json({
@@ -241,7 +246,9 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error updating listing:", error);
-        res.status(500).json({ error: "Failed to update listing." });
+        res.status(500).json({
+            error: "Failed to update listing.",
+        });
     }
 });
 
@@ -252,7 +259,7 @@ router.put("/:id", requireAuth, async (req: Request, res: Response) => {
 router.delete("/:id", requireAuth, async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
-        const result = await run("DELETE FROM listings WHERE id = ? AND user_id = ?", [id, req.user!.id]);
+        const result = await run("DELETE FROM listings WHERE id = $1 AND user_id = $2", [id, req.user!.id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Listing not found." });

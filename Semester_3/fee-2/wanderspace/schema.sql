@@ -1,13 +1,12 @@
 
-CREATE TABLE IF NOT EXISTS users (
-    id CHAR(36) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     username VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS listings (
-    id CHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     image TEXT NOT NULL,
@@ -15,21 +14,19 @@ CREATE TABLE IF NOT EXISTS listings (
     location VARCHAR(255) NOT NULL,
     country VARCHAR(255) NOT NULL,
     category VARCHAR(100) DEFAULT 'Trending',
-    user_id CHAR(36) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    user_id UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS reviews (
-    id CHAR(36) PRIMARY KEY,
-    listing_id CHAR(36) NOT NULL,
+    id UUID PRIMARY KEY,
+    listing_id UUID NOT NULL,
     author VARCHAR(100) DEFAULT 'Anonymous Guest',
-    user_id CHAR(36) NULL,
+    user_id UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL,
     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
-    ,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- 3. Helpful queries:
