@@ -1,10 +1,8 @@
-import java.util.Arrays;
-
 public class Batch {
     class Student {
         String name;
         int[] marks;
-        int sum
+        int sum;
 
         Student(String name, int[] marks) {
             this.name = name;
